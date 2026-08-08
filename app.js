@@ -1,11 +1,14 @@
 const form = document.getElementById('astrology-form');
 const generateBtn = document.getElementById('generate-btn');
 const scrollBtn = document.getElementById('scroll-btn');
+const saveBtn = document.getElementById('save-btn');
 const tabs = document.querySelectorAll('.tab');
 const panels = document.querySelectorAll('.panel');
 const planetNodes = document.getElementById('planet-nodes');
 const statusBanner = document.getElementById('status-banner');
 const API_BASE = '';
+
+let lastReadingData = null;
 
 function setStatus(message, type = 'info') {
   statusBanner.textContent = message;
@@ -89,6 +92,7 @@ async function loadReading(data) {
 
     const reading = await response.json();
     renderReading(reading);
+    lastReadingData = data;
     setStatus(`Reading ready for ${reading.name || 'you'}.`, 'success');
   } catch (error) {
     document.getElementById('kundali-summary').textContent = error.message;
@@ -96,6 +100,35 @@ async function loadReading(data) {
   } finally {
     generateBtn.disabled = false;
     form.querySelector('button[type="submit"]').disabled = false;
+  }
+}
+
+async function saveReading() {
+  if (!lastReadingData) {
+    setStatus('Generate a reading before saving it.', 'error');
+    return;
+  }
+
+  saveBtn.disabled = true;
+  setStatus('Saving your reading...', 'loading');
+
+  try {
+    const response = await fetch(`${API_BASE}/api/readings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lastReadingData)
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || 'Unable to save this reading right now.');
+    }
+
+    setStatus('Reading saved. View it on the Dashboard.', 'success');
+  } catch (error) {
+    setStatus(error.message, 'error');
+  } finally {
+    saveBtn.disabled = false;
   }
 }
 
@@ -114,6 +147,7 @@ generateBtn.addEventListener('click', () => form.requestSubmit());
 scrollBtn.addEventListener('click', () => {
   document.getElementById('panchang-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
+saveBtn.addEventListener('click', saveReading);
 
 tabs.forEach((tab) => {
   tab.addEventListener('click', () => {

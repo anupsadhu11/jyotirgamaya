@@ -354,6 +354,45 @@ main {
   line-height: 1.8;
 }
 
+.reading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  list-style: none;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.reading-row:last-child {
+  border-bottom: none;
+}
+
+.reading-info {
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+}
+
+.reading-meta {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 900px) {
   .hero,
   .panel-grid,

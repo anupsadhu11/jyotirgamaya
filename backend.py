@@ -1,8 +1,10 @@
 import json
 import math
 import os
+import re
+import sqlite3
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import URLError
 from urllib.parse import urlparse
@@ -13,6 +15,7 @@ import astronomy as astro
 
 HOST = os.environ.get('HOST', '127.0.0.1')
 PORT = int(os.environ.get('PORT', '8000'))
+DB_PATH = os.environ.get('DB_PATH', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'jyotirgamaya.db'))
 
 
 class ValidationError(Exception):
@@ -21,6 +24,10 @@ class ValidationError(Exception):
 
 class UpstreamError(Exception):
     """A dependency (geocoding, sunrise/sunset) is unavailable (maps to HTTP 502)."""
+
+
+class NotFoundError(Exception):
+    """Requested resource does not exist (maps to HTTP 404)."""
 
 ZODIAC_SIGNS = [
     'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
@@ -276,6 +283,92 @@ def validate_payload(payload: dict) -> None:
         raise ValidationError('Time of birth must be in HH:MM format.')
 
 
+def generate_reading(payload: dict) -> dict:
+    """Validates the request and produces a full reading. Shared by the
+    stateless preview endpoint and the save-a-reading endpoint so both stay
+    in sync."""
+    validate_payload(payload)
+    location = geocode_place(payload['place'])
+    daily_data = fetch_daily_astro_data(payload['dob'], location['latitude'], location['longitude'])
+    return build_reading({
+        **payload,
+        'latitude': location['latitude'],
+        'longitude': location['longitude'],
+        'locationName': location['name'],
+        **daily_data
+    })
+
+
+def init_db():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS readings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                dob TEXT NOT NULL,
+                tob TEXT NOT NULL,
+                place TEXT NOT NULL,
+                sun_sign TEXT NOT NULL,
+                moon_sign TEXT NOT NULL,
+                lagna TEXT NOT NULL,
+                reading_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        ''')
+
+
+def save_reading_record(payload: dict, reading: dict) -> dict:
+    created_at = datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.execute(
+            '''INSERT INTO readings (name, dob, tob, place, sun_sign, moon_sign, lagna, reading_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (payload['name'], payload['dob'], payload['tob'], payload['place'],
+             reading['sunSign'], reading['moonSign'], reading['lagna'],
+             json.dumps(reading), created_at)
+        )
+        reading_id = cursor.lastrowid
+    return {**reading, 'id': reading_id, 'createdAt': created_at}
+
+
+def list_reading_records(limit: int = 50):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            '''SELECT id, name, dob, tob, place, sun_sign, moon_sign, lagna, created_at
+               FROM readings ORDER BY id DESC LIMIT ?''',
+            (limit,)
+        ).fetchall()
+    return [{
+        'id': row['id'],
+        'name': row['name'],
+        'dob': row['dob'],
+        'tob': row['tob'],
+        'place': row['place'],
+        'sunSign': row['sun_sign'],
+        'moonSign': row['moon_sign'],
+        'lagna': row['lagna'],
+        'createdAt': row['created_at']
+    } for row in rows]
+
+
+def get_reading_record(reading_id: int) -> dict:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute('SELECT reading_json, created_at, id FROM readings WHERE id = ?', (reading_id,)).fetchone()
+    if not row:
+        raise NotFoundError(f'No saved reading with id {reading_id}.')
+    reading = json.loads(row['reading_json'])
+    return {**reading, 'id': row['id'], 'createdAt': row['created_at']}
+
+
+def delete_reading_record(reading_id: int) -> None:
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.execute('DELETE FROM readings WHERE id = ?', (reading_id,))
+    if cursor.rowcount == 0:
+        raise NotFoundError(f'No saved reading with id {reading_id}.')
+
+
 def build_reading(payload: dict) -> dict:
     name = payload['name']
     dob = payload['dob']
@@ -376,6 +469,9 @@ def build_reading(payload: dict) -> dict:
     }
 
 
+READING_ID_PATTERN = re.compile(r'^/api/readings/(\d+)$')
+
+
 class AstroHandler(BaseHTTPRequestHandler):
     def _send_json(self, status, payload):
         body = json.dumps(payload).encode('utf-8')
@@ -383,57 +479,91 @@ class AstroHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
         self.wfile.write(body)
 
+    def _handle_errors(self, fn):
+        try:
+            fn()
+        except ValidationError as exc:
+            self._send_json(400, {'error': str(exc)})
+        except UpstreamError as exc:
+            self._send_json(502, {'error': str(exc)})
+        except NotFoundError as exc:
+            self._send_json(404, {'error': str(exc)})
+        except Exception as exc:
+            print(f'Unexpected error: {exc!r}', file=sys.stderr)
+            self._send_json(500, {'error': 'Something went wrong. Please try again.'})
+
+    def _read_json_body(self):
+        length = int(self.headers.get('Content-Length', '0'))
+        body = self.rfile.read(length).decode('utf-8')
+        return json.loads(body) if body else {}
+
     def do_OPTIONS(self):
         self.send_response(204)
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
     def do_GET(self):
         parsed = urlparse(self.path)
+
         if parsed.path == '/api/health':
             self._send_json(200, {'status': 'ok', 'message': 'Jyotirgamaya backend is running.'})
             return
+
+        if parsed.path == '/api/readings':
+            self._handle_errors(lambda: self._send_json(200, {'readings': list_reading_records()}))
+            return
+
+        match = READING_ID_PATTERN.match(parsed.path)
+        if match:
+            reading_id = int(match.group(1))
+            self._handle_errors(lambda: self._send_json(200, get_reading_record(reading_id)))
+            return
+
         self._send_json(404, {'error': 'Not found'})
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        if parsed.path != '/api/astrology/reading':
-            self._send_json(404, {'error': 'Not found'})
+
+        if parsed.path == '/api/astrology/reading':
+            def handle():
+                payload = self._read_json_body()
+                self._send_json(200, generate_reading(payload))
+            self._handle_errors(handle)
             return
 
-        length = int(self.headers.get('Content-Length', '0'))
-        body = self.rfile.read(length).decode('utf-8')
-        payload = json.loads(body) if body else {}
+        if parsed.path == '/api/readings':
+            def handle():
+                payload = self._read_json_body()
+                reading = generate_reading(payload)
+                self._send_json(201, save_reading_record(payload, reading))
+            self._handle_errors(handle)
+            return
 
-        try:
-            validate_payload(payload)
-            location = geocode_place(payload['place'])
-            daily_data = fetch_daily_astro_data(payload['dob'], location['latitude'], location['longitude'])
-            reading = build_reading({
-                **payload,
-                'latitude': location['latitude'],
-                'longitude': location['longitude'],
-                'locationName': location['name'],
-                **daily_data
-            })
-            self._send_json(200, reading)
-        except ValidationError as exc:
-            self._send_json(400, {'error': str(exc)})
-        except UpstreamError as exc:
-            self._send_json(502, {'error': str(exc)})
-        except Exception as exc:
-            print(f'Unexpected error building reading: {exc!r}', file=sys.stderr)
-            self._send_json(500, {'error': 'Something went wrong while generating the reading. Please try again.'})
+        self._send_json(404, {'error': 'Not found'})
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        match = READING_ID_PATTERN.match(parsed.path)
+        if match:
+            reading_id = int(match.group(1))
+
+            def handle():
+                delete_reading_record(reading_id)
+                self._send_json(200, {'deleted': True, 'id': reading_id})
+            self._handle_errors(handle)
+            return
+        self._send_json(404, {'error': 'Not found'})
 
 
 if __name__ == '__main__':
+    init_db()
     server = ThreadingHTTPServer((HOST, PORT), AstroHandler)
     print(f'Jyotirgamaya backend running on http://{HOST}:{PORT}')
     server.serve_forever()

@@ -15,12 +15,17 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Jyotirgamaya backend is running.' });
 });
 
-app.post('/api/astrology/reading', async (req, res) => {
+const NO_BODY_METHODS = new Set(['GET', 'HEAD', 'DELETE']);
+
+// Every other /api/* route (readings CRUD, astrology reading generation, ...)
+// is owned by the Python service; forward it as-is instead of hand-coding
+// a route here per endpoint.
+app.use('/api', async (req, res) => {
   try {
-    const upstream = await fetch(`${PYTHON_API_URL}/api/astrology/reading`, {
-      method: 'POST',
+    const upstream = await fetch(`${PYTHON_API_URL}${req.originalUrl}`, {
+      method: req.method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body)
+      body: NO_BODY_METHODS.has(req.method) ? undefined : JSON.stringify(req.body)
     });
 
     const data = await upstream.json();
