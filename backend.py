@@ -4,6 +4,7 @@ import os
 import re
 import sqlite3
 import sys
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import URLError
@@ -299,8 +300,21 @@ def generate_reading(payload: dict) -> dict:
     })
 
 
+@contextmanager
+def db_connection():
+    # sqlite3's own context manager only handles commit/rollback, not closing
+    # the connection - on Windows that leaves the file locked, so we close
+    # it explicitly here.
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
+    with db_connection() as conn:
         conn.execute('''
             CREATE TABLE IF NOT EXISTS readings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -319,7 +333,7 @@ def init_db():
 
 def save_reading_record(payload: dict, reading: dict) -> dict:
     created_at = datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
-    with sqlite3.connect(DB_PATH) as conn:
+    with db_connection() as conn:
         cursor = conn.execute(
             '''INSERT INTO readings (name, dob, tob, place, sun_sign, moon_sign, lagna, reading_json, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
@@ -332,7 +346,7 @@ def save_reading_record(payload: dict, reading: dict) -> dict:
 
 
 def list_reading_records(limit: int = 50):
-    with sqlite3.connect(DB_PATH) as conn:
+    with db_connection() as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             '''SELECT id, name, dob, tob, place, sun_sign, moon_sign, lagna, created_at
@@ -353,7 +367,7 @@ def list_reading_records(limit: int = 50):
 
 
 def get_reading_record(reading_id: int) -> dict:
-    with sqlite3.connect(DB_PATH) as conn:
+    with db_connection() as conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute('SELECT reading_json, created_at, id FROM readings WHERE id = ?', (reading_id,)).fetchone()
     if not row:
@@ -363,7 +377,7 @@ def get_reading_record(reading_id: int) -> dict:
 
 
 def delete_reading_record(reading_id: int) -> None:
-    with sqlite3.connect(DB_PATH) as conn:
+    with db_connection() as conn:
         cursor = conn.execute('DELETE FROM readings WHERE id = ?', (reading_id,))
     if cursor.rowcount == 0:
         raise NotFoundError(f'No saved reading with id {reading_id}.')
