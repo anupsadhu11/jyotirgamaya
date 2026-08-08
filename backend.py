@@ -114,8 +114,12 @@ def ascendant_tropical(time: astro.Time, jd_ut: float, latitude: float, longitud
     eps = math.radians(obliquity_of_ecliptic(jd_ut))
     phi = math.radians(latitude)
 
-    y = -math.cos(ramc)
-    x = math.sin(ramc) * math.cos(eps) + math.tan(phi) * math.sin(eps)
+    # Numerically verified against a brute-force horizon-crossing search
+    # (see tests/test_backend.py::test_ascendant_matches_numeric_horizon_search).
+    # The naive tan(Asc) = -cos(RAMC) / (sin(RAMC)cos(eps) + tan(phi)sin(eps))
+    # form (without the negation below) resolves to the Descendant, 180 deg off.
+    y = math.cos(ramc)
+    x = -(math.sin(ramc) * math.cos(eps) + math.tan(phi) * math.sin(eps))
     return math.degrees(math.atan2(y, x)) % 360
 
 

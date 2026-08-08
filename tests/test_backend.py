@@ -112,6 +112,53 @@ class TestAstronomicalHelpers(unittest.TestCase):
         self.assertGreaterEqual(asc, 0)
         self.assertLess(asc, 360)
 
+    def test_ascendant_matches_numeric_horizon_search(self):
+        """Independent oracle for the Ascendant formula: brute-force search
+        the ecliptic for where altitude crosses zero on the rising (hour
+        angle < 0) side, using only the basic altitude formula
+        sin(alt) = sin(phi)sin(dec) + cos(phi)cos(dec)cos(H). This caught a
+        real bug where ascendant_tropical was off by exactly 180 degrees
+        (returning the Descendant instead)."""
+        import math
+
+        def numeric_ascendant(ramc_deg, phi_deg, eps_deg):
+            ramc, phi, eps = math.radians(ramc_deg), math.radians(phi_deg), math.radians(eps_deg)
+            step_deg = 0.05
+            steps = int(360 / step_deg)
+            prev = None  # (lam_deg, alt, H)
+            for i in range(steps + 2):
+                lam_deg = (i * step_deg) % 360
+                lam = math.radians(lam_deg)
+                dec = math.asin(math.sin(eps) * math.sin(lam))
+                ra = math.atan2(math.cos(eps) * math.sin(lam), math.cos(lam))
+                H = (ramc - ra + math.pi) % (2 * math.pi) - math.pi
+                alt = math.asin(math.sin(phi) * math.sin(dec) + math.cos(phi) * math.cos(dec) * math.cos(H))
+                if prev is not None and (prev[1] < 0) != (alt < 0):
+                    frac = -prev[1] / (alt - prev[1])
+                    lam_cross = prev[0] + frac * ((lam_deg - prev[0] + 180) % 360 - 180)
+                    H_cross = prev[2] + frac * ((H - prev[2] + math.pi) % (2 * math.pi) - math.pi)
+                    if H_cross < 0:  # rising side, not setting
+                        return lam_cross % 360
+                prev = (lam_deg, alt, H)
+            raise AssertionError('no rising crossing found')
+
+        time = backend.astro.Time.Make(2000, 1, 1, 12, 0, 0)
+        jd_ut = backend.julian_day(time)
+        eps_deg = backend.obliquity_of_ecliptic(jd_ut)
+        gst_deg = backend.astro.SiderealTime(time) * 15.0
+
+        for ramc_deg in (0, 45, 90, 135, 180, 225, 270, 315):
+            for phi_deg in (0, 25.32, 51.5, -33.87):
+                with self.subTest(ramc=ramc_deg, phi=phi_deg):
+                    # Choose the longitude that makes ascendant_tropical derive
+                    # this exact ramc_deg internally, so we're testing the real
+                    # function through its real interface, not a copy of its formula.
+                    longitude = (ramc_deg - gst_deg) % 360
+                    actual = backend.ascendant_tropical(time, jd_ut, latitude=phi_deg, longitude=longitude)
+                    expected = numeric_ascendant(ramc_deg, phi_deg, eps_deg)
+                    diff = (actual - expected + 180) % 360 - 180
+                    self.assertAlmostEqual(diff, 0, places=1)
+
 
 class TestValidation(unittest.TestCase):
     def test_missing_fields_rejected(self):
@@ -199,7 +246,7 @@ class TestGenerateReadingRegression(unittest.TestCase):
 
         self.assertEqual(reading['sunSign'], 'Gemini')
         self.assertEqual(reading['moonSign'], 'Sagittarius')
-        self.assertEqual(reading['lagna'], 'Capricorn')
+        self.assertEqual(reading['lagna'], 'Cancer')
         self.assertEqual(reading['nakshatra'], 'Purva Ashadha')
         self.assertEqual(reading['nakshatraPada'], 2)
         self.assertEqual(reading['panchang']['tithi'], 'Purnima')
