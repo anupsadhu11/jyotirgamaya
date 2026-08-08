@@ -31,14 +31,17 @@ function buildDetailRows(reading, key) {
   return { rows, showDegree };
 }
 
+function showEmptyState(message) {
+  const emptyState = document.getElementById('detail-empty-state');
+  emptyState.querySelector('p').textContent = message;
+  emptyState.hidden = false;
+  document.getElementById('detail-content').hidden = true;
+}
+
 function renderDetail() {
   const raw = sessionStorage.getItem('jyotirgamayaReading');
-  const emptyState = document.getElementById('detail-empty-state');
-  const content = document.getElementById('detail-content');
-
   if (!raw) {
-    emptyState.hidden = false;
-    content.hidden = true;
+    showEmptyState('No reading data found for this session. Generate a reading first, then open a chart from the Divisional Charts tab.');
     return;
   }
 
@@ -46,41 +49,49 @@ function renderDetail() {
   try {
     reading = JSON.parse(raw);
   } catch (error) {
-    emptyState.hidden = false;
-    content.hidden = true;
+    showEmptyState('Saved reading data looks corrupted. Please generate a new reading.');
     return;
   }
 
-  const key = getVargaKeyFromQuery();
-  const definition = CHART_DEFINITIONS.find((def) => def.key === key);
-  const ascendantSign = chartAscendant(reading, key);
+  // Anything below this point is defensive: it should always succeed given
+  // well-formed reading data, but a rendering bug should show an error
+  // message here instead of silently leaving a blank page (see the D1
+  // ascendant-degree crash this caught during testing).
+  try {
+    const key = getVargaKeyFromQuery();
+    const definition = CHART_DEFINITIONS.find((def) => def.key === key);
+    const ascendantSign = chartAscendant(reading, key);
 
-  document.getElementById('detail-title').textContent = `${definition.label} Chart`;
-  document.title = `${definition.label} | Jyotirgamaya`;
-  document.getElementById('detail-chart-heading').textContent = `${definition.label} for ${reading.name}`;
-  document.getElementById('detail-chart-subheading').textContent = `Ascendant: ${ascendantSign}`;
+    document.getElementById('detail-title').textContent = `${definition.label} Chart`;
+    document.title = `${definition.label} | Jyotirgamaya`;
+    document.getElementById('detail-chart-heading').textContent = `${definition.label} for ${reading.name}`;
+    document.getElementById('detail-chart-subheading').textContent = `Ascendant: ${ascendantSign}`;
 
-  const chartContainer = document.getElementById('detail-chart-container');
-  chartContainer.innerHTML = '';
-  chartContainer.appendChild(buildNorthChartSvg(340, ascendantSign, chartPlanetSigns(reading, key), 14, 11));
+    const chartContainer = document.getElementById('detail-chart-container');
+    chartContainer.innerHTML = '';
+    chartContainer.appendChild(buildNorthChartSvg(340, ascendantSign, chartPlanetSigns(reading, key), 14, 11));
 
-  const { rows, showDegree } = buildDetailRows(reading, key);
+    const { rows, showDegree } = buildDetailRows(reading, key);
 
-  const headRow = document.getElementById('detail-table-head');
-  headRow.innerHTML = `<th>Body</th><th>Sign</th><th>House</th>${showDegree ? '<th>Degree</th>' : ''}`;
+    const headRow = document.getElementById('detail-table-head');
+    headRow.innerHTML = `<th>Body</th><th>Sign</th><th>House</th>${showDegree ? '<th>Degree</th>' : ''}`;
 
-  const tableBody = document.getElementById('detail-table-body');
-  tableBody.innerHTML = rows.map((row) => `
-    <tr>
-      <td>${row.name}</td>
-      <td>${row.sign}</td>
-      <td>${row.house}</td>
-      ${showDegree ? `<td>${row.degree.toFixed(2)}&deg;</td>` : ''}
-    </tr>
-  `).join('');
+    const tableBody = document.getElementById('detail-table-body');
+    tableBody.innerHTML = rows.map((row) => `
+      <tr>
+        <td>${row.name}</td>
+        <td>${row.sign}</td>
+        <td>${row.house}</td>
+        ${showDegree ? `<td>${row.degree != null ? row.degree.toFixed(2) + '&deg;' : '&mdash;'}</td>` : ''}
+      </tr>
+    `).join('');
 
-  emptyState.hidden = true;
-  content.hidden = false;
+    document.getElementById('detail-empty-state').hidden = true;
+    document.getElementById('detail-content').hidden = false;
+  } catch (error) {
+    console.error('Failed to render chart detail:', error);
+    showEmptyState('Something went wrong showing this chart. Please try again from the Divisional Charts tab.');
+  }
 }
 
 renderDetail();

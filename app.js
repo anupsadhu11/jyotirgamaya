@@ -119,8 +119,10 @@ async function loadReading(data) {
     renderReading(reading);
     lastReadingData = data;
     // Detail chart pages (varga-detail.html) read this to avoid a second
-    // API round trip; sessionStorage keeps it scoped to this tab/session.
+    // API round trip; sessionStorage also lets this page restore the user's
+    // actual reading (instead of the hardcoded demo) when they navigate back.
     sessionStorage.setItem('jyotirgamayaReading', JSON.stringify(reading));
+    sessionStorage.setItem('jyotirgamayaFormData', JSON.stringify(data));
     setStatus(`Reading ready for ${reading.name || 'you'}.`, 'success');
   } catch (error) {
     document.getElementById('kundali-summary').textContent = error.message;
@@ -187,4 +189,28 @@ tabs.forEach((tab) => {
   });
 });
 
-loadReading({ name: 'Aarav', dob: '1995-07-12', tob: '06:30', place: 'Varanasi, India' });
+function restoreSavedReadingOrLoadDemo() {
+  const savedReading = sessionStorage.getItem('jyotirgamayaReading');
+  const savedFormData = sessionStorage.getItem('jyotirgamayaFormData');
+
+  if (savedReading && savedFormData) {
+    try {
+      const reading = JSON.parse(savedReading);
+      const data = JSON.parse(savedFormData);
+      document.getElementById('name').value = data.name || '';
+      document.getElementById('dob').value = data.dob || '';
+      document.getElementById('tob').value = data.tob || '';
+      document.getElementById('place').value = data.place || '';
+      renderReading(reading);
+      lastReadingData = data;
+      setStatus(`Reading ready for ${reading.name || 'you'}.`, 'success');
+      return;
+    } catch (error) {
+      // Fall through to the demo reading below if the saved data is corrupt.
+    }
+  }
+
+  loadReading({ name: 'Aarav', dob: '1995-07-12', tob: '06:30', place: 'Varanasi, India' });
+}
+
+restoreSavedReadingOrLoadDemo();
