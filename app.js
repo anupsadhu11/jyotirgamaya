@@ -46,6 +46,56 @@ function renderChart(planets = []) {
   });
 }
 
+function formatDasaDate(isoString) {
+  return new Date(isoString).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function renderVargas(reading) {
+  const rows = reading.planets.map((planet) => ({ name: planet.name, d1: planet.sign, vargas: planet.vargas }));
+  rows.push({ name: 'Ascendant', d1: reading.lagna, vargas: reading.ascendantVargas });
+
+  const tableBody = document.getElementById('varga-table-body');
+  tableBody.innerHTML = rows.map((row) => `
+    <tr>
+      <td>${row.name}</td>
+      <td>${row.d1}</td>
+      <td>${row.vargas.D2_Hora}</td>
+      <td>${row.vargas.D3_Drekkana}</td>
+      <td>${row.vargas.D7_Saptamsa}</td>
+      <td>${row.vargas.D9_Navamsa}</td>
+      <td>${row.vargas.D10_Dasamsa}</td>
+      <td>${row.vargas.D12_Dwadasamsa}</td>
+    </tr>
+  `).join('');
+}
+
+function renderDasha(reading) {
+  const { dasha } = reading;
+  document.getElementById('dasha-summary').textContent =
+    `Birth nakshatra: ${dasha.birthNakshatra} (lord ${dasha.birthNakshatraLord}). ` +
+    `Balance of first mahadasha at birth: ${dasha.balanceAtBirthYears} years.`;
+
+  const dashaList = document.getElementById('dasha-list');
+  dashaList.innerHTML = dasha.mahadashas.map((md) => `
+    <details class="dasha-mahadasha">
+      <summary>
+        <span class="dasha-lord">${md.lord}</span>
+        <span class="dasha-range">${formatDasaDate(md.start)} &ndash; ${formatDasaDate(md.end)}</span>
+        <span class="dasha-years">${md.years.toFixed(1)} yrs</span>
+      </summary>
+      <ul class="dasha-antardasha-list">
+        ${md.antardashas.map((ad) => `
+          <li>
+            <span class="dasha-lord">${ad.lord}</span>
+            <span class="dasha-range">${formatDasaDate(ad.start)} &ndash; ${formatDasaDate(ad.end)}</span>
+            <span class="dasha-years">${ad.years.toFixed(2)} yrs</span>
+          </li>
+        `).join('')}
+      </ul>
+    </details>
+  `).join('');
+}
+
 function renderReading(reading) {
   document.getElementById('sun-sign').textContent = reading.sunSign;
   document.getElementById('moon-sign').textContent = reading.moonSign;
@@ -72,6 +122,8 @@ function renderReading(reading) {
 
   document.getElementById('guidance-list').innerHTML = reading.guidance.map((item) => `<li>${item}</li>`).join('');
   renderChart(reading.planets);
+  renderVargas(reading);
+  renderDasha(reading);
 }
 
 async function loadReading(data) {

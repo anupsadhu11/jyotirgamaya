@@ -77,6 +77,7 @@
         <section class="tabs" aria-label="astrology sections">
           <button class="tab active" data-target="kundali">Kundali Reading</button>
           <button class="tab" data-target="panchang">Panchang</button>
+          <button class="tab" data-target="vargas">Charts &amp; Dasha</button>
           <button class="tab" data-target="remedies">Remedies</button>
         </section>
 
@@ -157,6 +158,43 @@
                 <p>Suggested focus for the day</p>
               </div>
               <ul class="guidance-list" id="guidance-list"></ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel" id="vargas-panel">
+          <div class="panel-grid">
+            <article class="card">
+              <div class="card-header">
+                <h3>Divisional Charts (Varga)</h3>
+                <p>Planetary placements across key vargas</p>
+              </div>
+              <div class="table-scroll">
+                <table class="varga-table">
+                  <thead>
+                    <tr>
+                      <th>Body</th>
+                      <th>D1 Rasi</th>
+                      <th>D2 Hora</th>
+                      <th>D3 Drekkana</th>
+                      <th>D7 Saptamsa</th>
+                      <th>D9 Navamsa</th>
+                      <th>D10 Dasamsa</th>
+                      <th>D12 Dwadasamsa</th>
+                    </tr>
+                  </thead>
+                  <tbody id="varga-table-body"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="card">
+              <div class="card-header">
+                <h3>Vimshottari Dasha</h3>
+                <p>Planetary periods governing your life</p>
+              </div>
+              <p class="dasha-summary" id="dasha-summary"></p>
+              <div class="dasha-list" id="dasha-list"></div>
             </article>
           </div>
         </section>

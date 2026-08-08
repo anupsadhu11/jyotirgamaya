@@ -330,6 +330,90 @@ main {
   margin-bottom: 8px;
 }
 
+.table-scroll {
+  overflow-x: auto;
+}
+
+.varga-table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+.varga-table th,
+.varga-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.varga-table th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.85em;
+}
+
+.dasha-summary {
+  color: var(--muted);
+  margin-top: 0;
+}
+
+.dasha-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dasha-mahadasha {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dasha-mahadasha summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.dasha-mahadasha summary::-webkit-details-marker {
+  display: none;
+}
+
+.dasha-lord {
+  font-weight: 600;
+  min-width: 70px;
+}
+
+.dasha-range {
+  color: var(--muted);
+  flex: 1;
+}
+
+.dasha-years {
+  color: var(--accent);
+  font-size: 0.9em;
+}
+
+.dasha-antardasha-list {
+  list-style: none;
+  margin: 0 0 8px 0;
+  padding: 0 0 0 16px;
+  border-left: 1px solid var(--border);
+}
+
+.dasha-antardasha-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 0.9em;
+}
+
 .dashboard-shell {
   padding-top: 32px;
 }

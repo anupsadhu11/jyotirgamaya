@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 from urllib.parse import quote
 
 import astronomy as astro
+import vedic_extras
 
 HOST = os.environ.get('HOST', '127.0.0.1')
 PORT = int(os.environ.get('PORT', '8000'))
@@ -413,7 +414,8 @@ def build_reading(payload: dict) -> dict:
             'name': graha_name,
             'longitude': round(sidereal, 2),
             'sign': sign_from_longitude(sidereal),
-            'degree': degree_in_sign(sidereal)
+            'degree': degree_in_sign(sidereal),
+            'vargas': vedic_extras.compute_vargas(sidereal)
         })
 
     rahu_sidereal = (mean_lunar_node_longitude(jd_ut) - ayanamsa) % 360
@@ -423,7 +425,8 @@ def build_reading(payload: dict) -> dict:
             'name': graha_name,
             'longitude': round(sidereal, 2),
             'sign': sign_from_longitude(sidereal),
-            'degree': degree_in_sign(sidereal)
+            'degree': degree_in_sign(sidereal),
+            'vargas': vedic_extras.compute_vargas(sidereal)
         })
 
     sun_sidereal = sidereal_longitudes['Sun']
@@ -434,6 +437,8 @@ def build_reading(payload: dict) -> dict:
     moon_sign = sign_from_longitude(moon_sidereal)
     lagna = sign_from_longitude(ascendant_sidereal)
     nakshatra, pada = nakshatra_from_longitude(moon_sidereal)
+    ascendant_vargas = vedic_extras.compute_vargas(ascendant_sidereal)
+    dasha = vedic_extras.vimshottari_dasha(moon_sidereal, utc_dt, antardasha=True, cycles=1)
 
     tithi, paksha = get_tithi(sun_sidereal, moon_sidereal)
     yoga = get_yoga(sun_sidereal, moon_sidereal)
@@ -473,6 +478,8 @@ def build_reading(payload: dict) -> dict:
         'location': payload.get('locationName'),
         'source': 'Astronomy Engine ephemeris (Lahiri ayanamsa) + Open-Meteo geocoding/sunrise data',
         'planets': planets,
+        'ascendantVargas': ascendant_vargas,
+        'dasha': dasha,
         'panchang': {
             'tithi': tithi,
             'paksha': paksha,
