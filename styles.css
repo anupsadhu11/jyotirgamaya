@@ -135,6 +135,39 @@ input {
   margin-top: 8px;
 }
 
+.status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  text-align: center;
+}
+
+.status-banner.loading {
+  color: #f7d9a0;
+  background: rgba(255, 179, 71, 0.14);
+}
+
+.status-banner.success {
+  color: #c8f7d0;
+  background: rgba(72, 187, 120, 0.16);
+}
+
+.status-banner.error {
+  color: #ffd4d4;
+  background: rgba(255, 95, 95, 0.16);
+}
+
+.btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
 main {
   margin-top: 24px;
 }
@@ -297,6 +330,30 @@ main {
   margin-bottom: 8px;
 }
 
+.dashboard-shell {
+  padding-top: 32px;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.dashboard-list {
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
 @media (max-width: 900px) {
   .hero,
   .panel-grid,
@@ -322,7 +379,8 @@ main {
   }
 
   .stats-grid,
-  .panchang-grid {
+  .panchang-grid,
+  .dashboard-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -1,3 +1,4 @@
-# backend.py currently uses only the Python standard library.
-# Phase 1 will add a real ephemeris engine here (e.g. pyswisseph) for
-# actual planetary-position based calculations.
+# astronomy-engine: pure-Python ephemeris (Sun/Moon/planet positions, sidereal
+# time). Used instead of pyswisseph because pyswisseph ships no Windows wheel
+# and requires a C compiler (MSVC Build Tools) to build from source.
+astronomy-engine>=2.1.19

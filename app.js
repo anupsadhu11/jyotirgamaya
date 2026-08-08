@@ -4,33 +4,41 @@ const scrollBtn = document.getElementById('scroll-btn');
 const tabs = document.querySelectorAll('.tab');
 const panels = document.querySelectorAll('.panel');
 const planetNodes = document.getElementById('planet-nodes');
+const statusBanner = document.getElementById('status-banner');
+const API_BASE = '';
 
-function renderChart() {
-  const nodes = [
-    { label: 'Sun', x: 160, y: 65 },
-    { label: 'Moon', x: 240, y: 120 },
-    { label: 'Mars', x: 220, y: 220 },
-    { label: 'Mercury', x: 120, y: 240 },
-    { label: 'Jupiter', x: 70, y: 140 },
-    { label: 'Venus', x: 95, y: 85 },
-    { label: 'Saturn', x: 250, y: 225 }
-  ];
+function setStatus(message, type = 'info') {
+  statusBanner.textContent = message;
+  statusBanner.className = `status-banner ${type}`;
+}
+
+function renderChart(planets = []) {
+  const cx = 160;
+  const cy = 160;
+  const radius = 103;
 
   planetNodes.innerHTML = '';
-  nodes.forEach((node, index) => {
+  planets.forEach((planet) => {
+    // 0 deg (sidereal Aries) at the top, increasing clockwise with longitude.
+    const angle = ((planet.longitude - 90) * Math.PI) / 180;
+    const x = cx + radius * Math.cos(angle);
+    const y = cy + radius * Math.sin(angle);
+
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    circle.setAttribute('cx', node.x);
-    circle.setAttribute('cy', node.y);
-    circle.setAttribute('r', 10 + index % 2);
+    circle.setAttribute('cx', x);
+    circle.setAttribute('cy', y);
+    circle.setAttribute('r', 8);
     circle.setAttribute('class', 'planet-dot');
     planetNodes.appendChild(circle);
 
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('x', node.x + 14);
-    text.setAttribute('y', node.y - 10);
+    const labelOffset = Math.cos(angle) >= 0 ? 12 : -12;
+    text.setAttribute('x', x + labelOffset);
+    text.setAttribute('y', y);
+    text.setAttribute('text-anchor', labelOffset > 0 ? 'start' : 'end');
     text.setAttribute('fill', '#f7c679');
     text.setAttribute('font-size', '11');
-    text.textContent = node.label;
+    text.textContent = planet.name;
     planetNodes.appendChild(text);
   });
 }
@@ -60,12 +68,16 @@ function renderReading(reading) {
   document.getElementById('muhurat').textContent = reading.panchang.muhurat;
 
   document.getElementById('guidance-list').innerHTML = reading.guidance.map((item) => `<li>${item}</li>`).join('');
-  renderChart();
+  renderChart(reading.planets);
 }
 
 async function loadReading(data) {
+  generateBtn.disabled = true;
+  form.querySelector('button[type="submit"]').disabled = true;
+  setStatus('Generating your reading...', 'loading');
+
   try {
-    const response = await fetch('/api/astrology/reading', {
+    const response = await fetch(`${API_BASE}/api/astrology/reading`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -77,8 +89,13 @@ async function loadReading(data) {
 
     const reading = await response.json();
     renderReading(reading);
+    setStatus(`Reading ready for ${reading.name || 'you'}.`, 'success');
   } catch (error) {
     document.getElementById('kundali-summary').textContent = error.message;
+    setStatus(error.message, 'error');
+  } finally {
+    generateBtn.disabled = false;
+    form.querySelector('button[type="submit"]').disabled = false;
   }
 }
 
