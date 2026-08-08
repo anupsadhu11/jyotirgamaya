@@ -1,8 +1,10 @@
 import json
 import math
 import os
+import sys
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.error import URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 from urllib.parse import quote
@@ -11,6 +13,14 @@ import astronomy as astro
 
 HOST = os.environ.get('HOST', '127.0.0.1')
 PORT = int(os.environ.get('PORT', '8000'))
+
+
+class ValidationError(Exception):
+    """Client-correctable problem with the request (maps to HTTP 400)."""
+
+
+class UpstreamError(Exception):
+    """A dependency (geocoding, sunrise/sunset) is unavailable (maps to HTTP 502)."""
 
 ZODIAC_SIGNS = [
     'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
@@ -182,24 +192,46 @@ def fetch_json(url: str):
         return json.load(response)
 
 
+_geocode_cache = {}
+_daily_astro_cache = {}
+
+
 def geocode_place(place: str):
+    """Resolves a place name to coordinates. Cached in-process since the
+    same place string always resolves to the same location."""
+    cache_key = place.strip().lower()
+    if cache_key in _geocode_cache:
+        return _geocode_cache[cache_key]
+
     url = f"https://geocoding-api.open-meteo.com/v1/search?name={quote(place)}&count=1&format=json"
-    data = fetch_json(url)
-    result = data.get('results', [{}])[0]
+    try:
+        data = fetch_json(url)
+    except (URLError, TimeoutError, OSError) as exc:
+        raise UpstreamError('The location lookup service is unavailable right now. Please try again shortly.') from exc
+
+    result = (data.get('results') or [None])[0]
     if not result:
-        raise RuntimeError('No location match found')
-    return {
+        raise ValidationError(f"Could not find a location matching '{place}'. Try a more specific place name.")
+
+    location = {
         'name': f"{result.get('name')}, {result.get('country')}",
         'latitude': result.get('latitude'),
         'longitude': result.get('longitude')
     }
+    _geocode_cache[cache_key] = location
+    return location
 
 
 def fetch_daily_astro_data(date_string: str, latitude: float, longitude: float):
     """Sunrise/sunset and UTC offset for the birth date. Tries the historical
     archive first (birth dates are almost always in the past); falls back to
     the forecast endpoint, which only covers roughly the last 3 months to the
-    next 2 weeks."""
+    next 2 weeks. Successful lookups are cached in-process; a date/place that
+    resolved once will always resolve the same way."""
+    cache_key = (date_string, round(latitude, 3), round(longitude, 3))
+    if cache_key in _daily_astro_cache:
+        return _daily_astro_cache[cache_key]
+
     params = (f"latitude={latitude}&longitude={longitude}&daily=sunrise,sunset"
               f"&timezone=auto&start_date={date_string}&end_date={date_string}")
     urls = [
@@ -217,13 +249,31 @@ def fetch_daily_astro_data(date_string: str, latitude: float, longitude: float):
         sunrise = daily.get('sunrise', [None])[0]
         sunset = daily.get('sunset', [None])[0]
         if sunrise and sunset:
-            return {
+            result = {
                 'sunrise': sunrise.split('T')[1][:5],
                 'sunset': sunset.split('T')[1][:5],
                 'utcOffsetSeconds': data.get('utc_offset_seconds', 0)
             }
+            _daily_astro_cache[cache_key] = result
+            return result
 
+    # Not cached: a transient failure here shouldn't be remembered forever.
     return {'sunrise': None, 'sunset': None, 'utcOffsetSeconds': 0}
+
+
+def validate_payload(payload: dict) -> None:
+    if not payload.get('name') or not payload.get('dob') or not payload.get('tob') or not payload.get('place'):
+        raise ValidationError('Please provide name, date of birth, time of birth, and place.')
+
+    try:
+        datetime.strptime(payload['dob'], '%Y-%m-%d')
+    except ValueError:
+        raise ValidationError('Date of birth must be in YYYY-MM-DD format.')
+
+    try:
+        datetime.strptime(payload['tob'], '%H:%M')
+    except ValueError:
+        raise ValidationError('Time of birth must be in HH:MM format.')
 
 
 def build_reading(payload: dict) -> dict:
@@ -363,10 +413,7 @@ class AstroHandler(BaseHTTPRequestHandler):
         payload = json.loads(body) if body else {}
 
         try:
-            if not payload.get('name') or not payload.get('dob') or not payload.get('tob') or not payload.get('place'):
-                self._send_json(400, {'error': 'Please provide name, date of birth, time of birth, and place.'})
-                return
-
+            validate_payload(payload)
             location = geocode_place(payload['place'])
             daily_data = fetch_daily_astro_data(payload['dob'], location['latitude'], location['longitude'])
             reading = build_reading({
@@ -377,8 +424,13 @@ class AstroHandler(BaseHTTPRequestHandler):
                 **daily_data
             })
             self._send_json(200, reading)
+        except ValidationError as exc:
+            self._send_json(400, {'error': str(exc)})
+        except UpstreamError as exc:
+            self._send_json(502, {'error': str(exc)})
         except Exception as exc:
-            self._send_json(500, {'error': str(exc)})
+            print(f'Unexpected error building reading: {exc!r}', file=sys.stderr)
+            self._send_json(500, {'error': 'Something went wrong while generating the reading. Please try again.'})
 
 
 if __name__ == '__main__':
