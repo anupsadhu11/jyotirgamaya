@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jyotirgamaya | Kundali & Panchang</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">AI-guided Vedic wisdom</p>
+          <h1>Jyotirgamaya</h1>
+          <p class="hero-text">
+            Discover your kundali reading, daily panchang, and auspicious timings in a beautifully crafted astrology experience.
+          </p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" id="generate-btn">Generate Reading</button>
+            <button class="btn btn-secondary" id="scroll-btn">View Panchang</button>
+          </div>
+        </div>
+
+        <div class="hero-card">
+          <h2>Birth Details</h2>
+          <form id="astrology-form">
+            <label>
+              Name
+              <input type="text" id="name" value="Aarav" required />
+            </label>
+            <label>
+              Date of Birth
+              <input type="date" id="dob" required />
+            </label>
+            <label>
+              Time of Birth
+              <input type="time" id="tob" required />
+            </label>
+            <label>
+              Birth Place
+              <input type="text" id="place" value="Varanasi, India" required />
+            </label>
+            <button type="submit" class="btn btn-primary full-width">Read My Chart</button>
+          </form>
+        </div>
+      </header>
+
+      <main>
+        <section class="stats-grid" aria-label="core astrology summary">
+          <article class="stat-card">
+            <span class="stat-label">Sun Sign</span>
+            <strong id="sun-sign">—</strong>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Moon Sign</span>
+            <strong id="moon-sign">—</strong>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Lagna</span>
+            <strong id="lagna">—</strong>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Nakshatra</span>
+            <strong id="nakshatra">—</strong>
+          </article>
+        </section>
+
+        <section class="tabs" aria-label="astrology sections">
+          <button class="tab active" data-target="kundali">Kundali Reading</button>
+          <button class="tab" data-target="panchang">Panchang</button>
+          <button class="tab" data-target="remedies">Remedies</button>
+        </section>
+
+        <section class="panel active" id="kundali-panel">
+          <div class="panel-grid">
+            <article class="card chart-card">
+              <div class="card-header">
+                <h3>Birth Chart</h3>
+                <p>Your planetary energy at a glance</p>
+              </div>
+              <svg viewBox="0 0 320 320" class="kundali-chart" aria-label="kundali chart">
+                <circle cx="160" cy="160" r="120" class="orbit"></circle>
+                <circle cx="160" cy="160" r="86" class="orbit"></circle>
+                <line x1="160" y1="40" x2="160" y2="280" class="axis"></line>
+                <line x1="40" y1="160" x2="280" y2="160" class="axis"></line>
+                <g id="planet-nodes"></g>
+              </svg>
+              <div class="chart-caption" id="kundali-summary"></div>
+            </article>
+
+            <article class="card insights-card">
+              <div class="card-header">
+                <h3>Planetary Insights</h3>
+                <p>Core themes of your chart</p>
+              </div>
+              <div class="insight-list" id="planet-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel" id="panchang-panel">
+          <div class="panel-grid">
+            <article class="card">
+              <div class="card-header">
+                <h3>Today's Panchang</h3>
+                <p>Daily cosmic rhythm for your location</p>
+              </div>
+              <div class="panchang-grid">
+                <div class="panchang-item">
+                  <span>Tithi</span>
+                  <strong id="tithi">—</strong>
+                </div>
+                <div class="panchang-item">
+                  <span>Nakshatra</span>
+                  <strong id="panchang-nakshatra">—</strong>
+                </div>
+                <div class="panchang-item">
+                  <span>Yoga</span>
+                  <strong id="yoga">—</strong>
+                </div>
+                <div class="panchang-item">
+                  <span>Karana</span>
+                  <strong id="karana">—</strong>
+                </div>
+                <div class="panchang-item">
+                  <span>Sunrise</span>
+                  <strong id="sunrise">—</strong>
+                </div>
+                <div class="panchang-item">
+                  <span>Sunset</span>
+                  <strong id="sunset">—</strong>
+                </div>
+                <div class="panchang-item">
+                  <span>Rahu Kalam</span>
+                  <strong id="rahukalam">—</strong>
+                </div>
+                <div class="panchang-item">
+                  <span>Shubh Muhurat</span>
+                  <strong id="muhurat">—</strong>
+                </div>
+              </div>
+            </article>
+
+            <article class="card">
+              <div class="card-header">
+                <h3>Daily Guidance</h3>
+                <p>Suggested focus for the day</p>
+              </div>
+              <ul class="guidance-list" id="guidance-list"></ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel" id="remedies-panel">
+          <div class="card remedies-card">
+            <div class="card-header">
+              <h3>Remedies & Rituals</h3>
+              <p>Gentle practices to align with the day</p>
+            </div>
+            <div class="remedies-grid">
+              <div class="remedy">
+                <h4>Mantra</h4>
+                <p>Chant the Mahamrityunjaya mantra 11 times for calm and clarity.</p>
+              </div>
+              <div class="remedy">
+                <h4>Offerings</h4>
+                <p>Offer water to the sun, especially during the early morning.</p>
+              </div>
+              <div class="remedy">
+                <h4>Mindfulness</h4>
+                <p>Spend 10 minutes in silence before beginning important work.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
