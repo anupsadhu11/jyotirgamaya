@@ -88,13 +88,7 @@
                 <h3>Birth Chart</h3>
                 <p>Your planetary energy at a glance</p>
               </div>
-              <svg viewBox="0 0 320 320" class="kundali-chart" aria-label="kundali chart">
-                <circle cx="160" cy="160" r="120" class="orbit"></circle>
-                <circle cx="160" cy="160" r="86" class="orbit"></circle>
-                <line x1="160" y1="40" x2="160" y2="280" class="axis"></line>
-                <line x1="40" y1="160" x2="280" y2="160" class="axis"></line>
-                <g id="planet-nodes"></g>
-              </svg>
+              <div class="north-chart-container" id="kundali-chart-container" aria-label="North Indian style birth chart"></div>
               <div class="chart-caption" id="kundali-summary"></div>
             </article>
 
@@ -169,23 +163,7 @@
                 <h3>Divisional Charts (Varga)</h3>
                 <p>Planetary placements across key vargas</p>
               </div>
-              <div class="table-scroll">
-                <table class="varga-table">
-                  <thead>
-                    <tr>
-                      <th>Body</th>
-                      <th>D1 Rasi</th>
-                      <th>D2 Hora</th>
-                      <th>D3 Drekkana</th>
-                      <th>D7 Saptamsa</th>
-                      <th>D9 Navamsa</th>
-                      <th>D10 Dasamsa</th>
-                      <th>D12 Dwadasamsa</th>
-                    </tr>
-                  </thead>
-                  <tbody id="varga-table-body"></tbody>
-                </table>
-              </div>
+              <div class="varga-charts-grid" id="varga-charts-grid"></div>
             </article>
 
             <article class="card">
