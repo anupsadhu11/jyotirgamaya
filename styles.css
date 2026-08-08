@@ -14,6 +14,13 @@
   box-sizing: border-box;
 }
 
+/* The [hidden] attribute must always win over a component's own display
+   rule (e.g. display:flex/grid on the same element) - otherwise toggling
+   .hidden in JS silently does nothing on any element styled that way. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: 'Inter', sans-serif;
@@ -273,11 +280,22 @@ main {
 }
 
 .varga-chart-card {
+  display: block;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 10px;
   text-align: center;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.varga-chart-card:hover,
+.varga-chart-card:focus-visible {
+  border-color: var(--accent);
+  transform: translateY(-2px);
 }
 
 .varga-chart-card h4 {
@@ -418,6 +436,44 @@ main {
   gap: 12px;
   padding: 6px 0;
   font-size: 0.9em;
+}
+
+.detail-shell {
+  padding-top: 32px;
+}
+
+#detail-empty-state {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+#detail-content {
+  margin-top: 20px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.detail-table th,
+.detail-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-table th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.85em;
 }
 
 .dashboard-shell {

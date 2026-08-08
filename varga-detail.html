@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chart Detail | Jyotirgamaya</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell detail-shell">
+      <header class="dashboard-header">
+        <div>
+          <p class="eyebrow">Divisional Chart</p>
+          <h1 id="detail-title">Chart Detail</h1>
+        </div>
+        <a class="btn btn-secondary" href="index.html">&larr; Back to Reading</a>
+      </header>
+
+      <div id="detail-empty-state" class="card" hidden>
+        <p>No reading data found for this session. Generate a reading first, then open a chart from the Divisional Charts tab.</p>
+        <a class="btn btn-primary" href="index.html">Generate a Reading</a>
+      </div>
+
+      <div id="detail-content" class="panel-grid" hidden>
+        <article class="card chart-card">
+          <div class="card-header">
+            <h3 id="detail-chart-heading">Chart</h3>
+            <p id="detail-chart-subheading">Ascendant and planetary placements</p>
+          </div>
+          <div class="north-chart-container" id="detail-chart-container" aria-label="North Indian style chart"></div>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <h3>Planetary Positions</h3>
+            <p>Sign and house for each graha in this chart</p>
+          </div>
+          <div class="table-scroll">
+            <table class="detail-table">
+              <thead>
+                <tr id="detail-table-head"></tr>
+              </thead>
+              <tbody id="detail-table-body"></tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <script src="north-chart.js"></script>
+    <script src="varga-detail.js"></script>
+  </body>
+</html>

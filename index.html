@@ -77,7 +77,8 @@
         <section class="tabs" aria-label="astrology sections">
           <button class="tab active" data-target="kundali">Kundali Reading</button>
           <button class="tab" data-target="panchang">Panchang</button>
-          <button class="tab" data-target="vargas">Charts &amp; Dasha</button>
+          <button class="tab" data-target="divisional">Divisional Charts</button>
+          <button class="tab" data-target="dasha">Dasha</button>
           <button class="tab" data-target="remedies">Remedies</button>
         </section>
 
@@ -156,25 +157,25 @@
           </div>
         </section>
 
-        <section class="panel" id="vargas-panel">
-          <div class="panel-grid">
-            <article class="card">
-              <div class="card-header">
-                <h3>Divisional Charts (Varga)</h3>
-                <p>Planetary placements across key vargas</p>
-              </div>
-              <div class="varga-charts-grid" id="varga-charts-grid"></div>
-            </article>
+        <section class="panel" id="divisional-panel">
+          <article class="card">
+            <div class="card-header">
+              <h3>Divisional Charts (Varga)</h3>
+              <p>Planetary placements across key vargas &mdash; click a chart for details</p>
+            </div>
+            <div class="varga-charts-grid" id="varga-charts-grid"></div>
+          </article>
+        </section>
 
-            <article class="card">
-              <div class="card-header">
-                <h3>Vimshottari Dasha</h3>
-                <p>Planetary periods governing your life</p>
-              </div>
-              <p class="dasha-summary" id="dasha-summary"></p>
-              <div class="dasha-list" id="dasha-list"></div>
-            </article>
-          </div>
+        <section class="panel" id="dasha-panel">
+          <article class="card">
+            <div class="card-header">
+              <h3>Vimshottari Dasha</h3>
+              <p>Planetary periods governing your life</p>
+            </div>
+            <p class="dasha-summary" id="dasha-summary"></p>
+            <div class="dasha-list" id="dasha-list"></div>
+          </article>
         </section>
 
         <section class="panel" id="remedies-panel">
@@ -202,6 +203,7 @@
       </main>
     </div>
 
+    <script src="north-chart.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
