@@ -4,7 +4,7 @@ A full-stack kundali and panchang app with:
 - a polished frontend experience
 - a Node/Express web server that serves the frontend and proxies API requests
 - a Python backend that computes the astrology reading (live geocoding + sunrise/sunset via Open-Meteo)
-- **Ask Guruji** — an in-character Vedic astrology chat persona (Anthropic API) that answers grounded in your own generated chart
+- **Ask Guruji** — an in-character Vedic astrology chat persona (Google Gemini API) that answers grounded in your own generated chart
 
 ## Architecture
 
@@ -44,10 +44,10 @@ server and the Python service (via `python-dotenv`):
 - `PYTHON_API_URL` — base URL of the Python service, used by Express to proxy to it (default `http://127.0.0.1:8000`)
 - `PYTHON_PORT` / `PYTHON_HOST` — what the Python service itself binds to (defaults `8000` / `127.0.0.1`)
 - `DB_PATH` — SQLite file for saved readings (default `jyotirgamaya.db` next to `backend.py`)
-- `ANTHROPIC_API_KEY` — required for the "Ask Guruji" tab; get one at
-  https://console.anthropic.com/settings/keys. Without it, Guruji responds
+- `GEMINI_API_KEY` — required for the "Ask Guruji" tab; get one at
+  https://aistudio.google.com/apikey. Without it, Guruji responds
   with a clear "not configured" message instead of failing silently.
-- `GURUJI_MODEL` — optional, overrides the model Guruji uses (default `claude-sonnet-5`)
+- `GURUJI_MODEL` — optional, overrides the model Guruji uses (default `gemini-2.5-flash`)
 
 ## Tests
 

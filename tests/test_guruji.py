@@ -3,8 +3,7 @@ import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
-import httpx
-from anthropic import APIConnectionError
+from google.genai import errors
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -12,11 +11,8 @@ import guruji
 
 
 def make_text_response(text):
-    block = MagicMock()
-    block.type = 'text'
-    block.text = text
     response = MagicMock()
-    response.content = [block]
+    response.text = text
     return response
 
 
@@ -77,7 +73,7 @@ class TestReadingContext(unittest.TestCase):
 
 class TestAskGuruji(unittest.TestCase):
     def setUp(self):
-        self.env_patch = patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
+        self.env_patch = patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'})
         self.env_patch.start()
 
     def tearDown(self):
@@ -89,68 +85,89 @@ class TestAskGuruji(unittest.TestCase):
                 guruji.ask_guruji('What does my chart say?')
 
     def test_successful_reply(self):
-        with patch.object(guruji, 'Anthropic') as MockAnthropic:
-            client = MockAnthropic.return_value
-            client.messages.create.return_value = make_text_response('Dear seeker, the stars incline...')
+        with patch.object(guruji.genai, 'Client') as MockClient:
+            client = MockClient.return_value
+            client.models.generate_content.return_value = make_text_response('Dear seeker, the stars incline...')
 
             reply = guruji.ask_guruji('What does my chart say?', reading=SAMPLE_READING)
 
             self.assertEqual(reply, 'Dear seeker, the stars incline...')
-            call_kwargs = client.messages.create.call_args.kwargs
+            call_kwargs = client.models.generate_content.call_args.kwargs
             self.assertEqual(call_kwargs['model'], guruji.MODEL)
-            self.assertIn('Gemini', call_kwargs['system'])
-            self.assertEqual(call_kwargs['messages'][-1], {'role': 'user', 'content': 'What does my chart say?'})
+            self.assertIn('Gemini', call_kwargs['config'].system_instruction)
+            self.assertEqual(call_kwargs['contents'][-1],
+                              {'role': 'user', 'parts': [{'text': 'What does my chart say?'}]})
 
     def test_history_is_included_and_capped(self):
-        with patch.object(guruji, 'Anthropic') as MockAnthropic:
-            client = MockAnthropic.return_value
-            client.messages.create.return_value = make_text_response('reply')
+        with patch.object(guruji.genai, 'Client') as MockClient:
+            client = MockClient.return_value
+            client.models.generate_content.return_value = make_text_response('reply')
 
             long_history = [{'role': 'user', 'content': f'q{i}'} for i in range(50)]
             guruji.ask_guruji('latest question', history=long_history)
 
-            sent_messages = client.messages.create.call_args.kwargs['messages']
+            sent_contents = client.models.generate_content.call_args.kwargs['contents']
             # capped history + the new message
-            self.assertEqual(len(sent_messages), guruji.MAX_HISTORY_TURNS + 1)
-            self.assertEqual(sent_messages[-1]['content'], 'latest question')
+            self.assertEqual(len(sent_contents), guruji.MAX_HISTORY_TURNS + 1)
+            self.assertEqual(sent_contents[-1]['parts'][0]['text'], 'latest question')
+
+    def test_assistant_role_translated_to_model(self):
+        with patch.object(guruji.genai, 'Client') as MockClient:
+            client = MockClient.return_value
+            client.models.generate_content.return_value = make_text_response('reply')
+
+            history = [{'role': 'user', 'content': 'hi'}, {'role': 'assistant', 'content': 'namaste'}]
+            guruji.ask_guruji('next question', history=history)
+
+            sent_contents = client.models.generate_content.call_args.kwargs['contents']
+            self.assertEqual([c['role'] for c in sent_contents], ['user', 'model', 'user'])
 
     def test_history_ignores_malformed_entries(self):
-        with patch.object(guruji, 'Anthropic') as MockAnthropic:
-            client = MockAnthropic.return_value
-            client.messages.create.return_value = make_text_response('reply')
+        with patch.object(guruji.genai, 'Client') as MockClient:
+            client = MockClient.return_value
+            client.models.generate_content.return_value = make_text_response('reply')
 
             history = [{'role': 'system', 'content': 'ignored'}, {'role': 'user'}, {'content': 'no role'}]
             guruji.ask_guruji('question', history=history)
 
-            sent_messages = client.messages.create.call_args.kwargs['messages']
-            self.assertEqual(sent_messages, [{'role': 'user', 'content': 'question'}])
+            sent_contents = client.models.generate_content.call_args.kwargs['contents']
+            self.assertEqual(sent_contents, [{'role': 'user', 'parts': [{'text': 'question'}]}])
 
     def test_api_error_raises_unavailable(self):
-        with patch.object(guruji, 'Anthropic') as MockAnthropic:
-            client = MockAnthropic.return_value
-            req = httpx.Request('POST', 'https://api.anthropic.com/v1/messages')
-            client.messages.create.side_effect = APIConnectionError(request=req)
+        with patch.object(guruji.genai, 'Client') as MockClient:
+            client = MockClient.return_value
+            client.models.generate_content.side_effect = errors.ClientError(
+                code=429, response_json={'error': {'message': 'rate limited'}}
+            )
 
             with self.assertRaises(guruji.GurujiUnavailableError):
                 guruji.ask_guruji('What does my chart say?')
 
     def test_empty_reply_raises_unavailable(self):
-        with patch.object(guruji, 'Anthropic') as MockAnthropic:
-            client = MockAnthropic.return_value
-            client.messages.create.return_value = make_text_response('   ')
+        with patch.object(guruji.genai, 'Client') as MockClient:
+            client = MockClient.return_value
+            client.models.generate_content.return_value = make_text_response('   ')
+
+            with self.assertRaises(guruji.GurujiUnavailableError):
+                guruji.ask_guruji('What does my chart say?')
+
+    def test_blocked_response_with_no_text_raises_unavailable(self):
+        with patch.object(guruji.genai, 'Client') as MockClient:
+            client = MockClient.return_value
+            client.models.generate_content.return_value = make_text_response(None)
 
             with self.assertRaises(guruji.GurujiUnavailableError):
                 guruji.ask_guruji('What does my chart say?')
 
     def test_no_reading_omits_context_from_system_prompt(self):
-        with patch.object(guruji, 'Anthropic') as MockAnthropic:
-            client = MockAnthropic.return_value
-            client.messages.create.return_value = make_text_response('reply')
+        with patch.object(guruji.genai, 'Client') as MockClient:
+            client = MockClient.return_value
+            client.models.generate_content.return_value = make_text_response('reply')
 
             guruji.ask_guruji('What is a nakshatra?')
 
-            call_kwargs = client.messages.create.call_args.kwargs
-            self.assertNotIn("SEEKER'S CURRENT CHART", call_kwargs['system'])
+            call_kwargs = client.models.generate_content.call_args.kwargs
+            self.assertNotIn("SEEKER'S CURRENT CHART", call_kwargs['config'].system_instruction)
 
 
 if __name__ == '__main__':

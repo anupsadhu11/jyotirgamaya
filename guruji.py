@@ -1,5 +1,5 @@
 """Guruji: an in-character Vedic astrology chat persona, powered by the
-Anthropic API.
+Google Gemini API.
 
 Standalone and additive, like vedic_extras.py - backend.py imports this
 module and wires it to /api/guruji/chat, but nothing here reaches back into
@@ -8,10 +8,15 @@ its own ValidationError/UpstreamError at the route boundary.
 """
 import os
 
-from anthropic import Anthropic, APIError
+from google import genai
+from google.genai import errors, types
 
-MODEL = os.environ.get('GURUJI_MODEL', 'claude-sonnet-5')
-MAX_REPLY_TOKENS = 600
+MODEL = os.environ.get('GURUJI_MODEL', 'gemini-3.6-flash')
+# This model spends tokens on internal "thinking" before the visible reply,
+# and max_output_tokens caps thinking + reply combined - a plain chat answer
+# alone used 350-750 thinking tokens in testing, so this needs real headroom
+# beyond what a "few short paragraphs" reply would otherwise need on its own.
+MAX_REPLY_TOKENS = 2048
 MAX_MESSAGE_LENGTH = 2000
 MAX_HISTORY_TURNS = 20  # most recent user+assistant turns resent for context
 
@@ -57,12 +62,12 @@ class GurujiUnavailableError(Exception):
 
 
 def _client():
-    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    api_key = os.environ.get('GEMINI_API_KEY')
     if not api_key:
         raise GurujiUnavailableError(
-            'Guruji is not configured yet. Set ANTHROPIC_API_KEY in your .env file to enable this feature.'
+            'Guruji is not configured yet. Set GEMINI_API_KEY in your .env file to enable this feature.'
         )
-    return Anthropic(api_key=api_key)
+    return genai.Client(api_key=api_key)
 
 
 def _format_reading_context(reading):
@@ -99,6 +104,22 @@ def _validate(message, history):
         raise GurujiValidationError('Conversation history is malformed.')
 
 
+def _to_gemini_contents(message, history):
+    """Gemini uses role 'model' where Anthropic/OpenAI-style history uses
+    'assistant' - translate at this boundary so the rest of the app (the
+    frontend, backend.py's route) can keep using the more common 'assistant'
+    naming regardless of which provider is behind ask_guruji()."""
+    contents = []
+    for turn in (history or [])[-MAX_HISTORY_TURNS:]:
+        role = turn.get('role') if isinstance(turn, dict) else None
+        content = turn.get('content') if isinstance(turn, dict) else None
+        if role in ('user', 'assistant') and content:
+            gemini_role = 'model' if role == 'assistant' else 'user'
+            contents.append({'role': gemini_role, 'parts': [{'text': str(content)[:MAX_MESSAGE_LENGTH]}]})
+    contents.append({'role': 'user', 'parts': [{'text': message.strip()}]})
+    return contents
+
+
 def ask_guruji(message: str, history=None, reading=None) -> str:
     """message: the seeker's new question.
     history: optional list of {"role": "user"|"assistant", "content": str} prior turns.
@@ -114,26 +135,26 @@ def ask_guruji(message: str, history=None, reading=None) -> str:
     if context:
         system += f"\n\nTHE SEEKER'S CURRENT CHART (already computed - use it, don't recompute it):\n{context}"
 
-    messages = []
-    for turn in (history or [])[-MAX_HISTORY_TURNS:]:
-        role = turn.get('role') if isinstance(turn, dict) else None
-        content = turn.get('content') if isinstance(turn, dict) else None
-        if role in ('user', 'assistant') and content:
-            messages.append({'role': role, 'content': str(content)[:MAX_MESSAGE_LENGTH]})
-    messages.append({'role': 'user', 'content': message.strip()})
+    contents = _to_gemini_contents(message, history)
 
     try:
-        response = client.messages.create(
+        response = client.models.generate_content(
             model=MODEL,
-            max_tokens=MAX_REPLY_TOKENS,
-            system=system,
-            messages=messages,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system,
+                max_output_tokens=MAX_REPLY_TOKENS,
+                # Guruji is a conversational persona, not a reasoning task - a
+                # lighter thinking budget roughly halves latency/cost with no
+                # noticeable quality loss in testing (thinking_budget=0 is
+                # rejected outright by this model, so "low" is the floor).
+                thinking_config=types.ThinkingConfig(thinking_level='low'),
+            ),
         )
-    except APIError as exc:
+    except errors.APIError as exc:
         raise GurujiUnavailableError('Guruji is unavailable right now. Please try again shortly.') from exc
 
-    reply = ''.join(block.text for block in response.content if getattr(block, 'type', None) == 'text')
-    reply = reply.strip()
+    reply = (response.text or '').strip()
     if not reply:
         raise GurujiUnavailableError('Guruji had no answer this time. Please try rephrasing your question.')
     return reply
