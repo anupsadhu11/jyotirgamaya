@@ -2,3 +2,12 @@
 # time). Used instead of pyswisseph because pyswisseph ships no Windows wheel
 # and requires a C compiler (MSVC Build Tools) to build from source.
 astronomy-engine>=2.1.19
+
+# anthropic: powers the "Guruji" chat feature (backend.py -> guruji.py).
+# Requires an ANTHROPIC_API_KEY (see .env.example).
+anthropic>=0.122.0
+
+# python-dotenv: loads .env for the Python backend too (server.js already
+# used dotenv on the Node side, but backend.py never read .env until this
+# was needed for ANTHROPIC_API_KEY).
+python-dotenv>=1.0.0

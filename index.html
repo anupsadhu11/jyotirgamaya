@@ -76,6 +76,7 @@
 
         <section class="tabs" aria-label="astrology sections">
           <button class="tab active" data-target="kundali">Kundali Reading</button>
+          <button class="tab" data-target="guruji">Ask Guruji</button>
           <button class="tab" data-target="panchang">Panchang</button>
           <button class="tab" data-target="divisional">Divisional Charts</button>
           <button class="tab" data-target="dasha">Dasha</button>
@@ -102,6 +103,24 @@
               <button class="btn btn-primary full-width" id="save-btn">Save This Reading</button>
             </article>
           </div>
+        </section>
+
+        <section class="panel" id="guruji-panel">
+          <article class="card guruji-card">
+            <div class="card-header">
+              <h3>Ask Guruji</h3>
+              <p>Your Vedic astrology guide &mdash; grounded in your own chart once you've generated one</p>
+            </div>
+            <div class="guruji-messages" id="guruji-messages">
+              <div class="guruji-message guruji-message-bot">
+                <div class="guruji-bubble">Namaste, dear seeker. I am Guruji. Ask me about your rashi, nakshatra, dasha, or Jyotish in general &mdash; if you've generated your reading, I will speak from your own chart.</div>
+              </div>
+            </div>
+            <form id="guruji-form" class="guruji-form">
+              <input type="text" id="guruji-input" placeholder="Ask Guruji a question..." autocomplete="off" required />
+              <button type="submit" class="btn btn-primary" id="guruji-send-btn">Ask</button>
+            </form>
+          </article>
         </section>
 
         <section class="panel" id="panchang-panel">
@@ -205,5 +224,6 @@
 
     <script src="north-chart.js"></script>
     <script src="app.js"></script>
+    <script src="guruji.js"></script>
   </body>
 </html>

@@ -12,11 +12,20 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 from urllib.parse import quote
 
+from dotenv import load_dotenv
+
+load_dotenv()  # must run before importing modules that read env vars at import time
+
 import astronomy as astro
 import vedic_extras
+import guruji
 
-HOST = os.environ.get('HOST', '127.0.0.1')
-PORT = int(os.environ.get('PORT', '8000'))
+HOST = os.environ.get('PYTHON_HOST', '127.0.0.1')
+# Deliberately not just PORT: server.js reads that same generic name from the
+# same shared .env file for its own (different) port. Now that backend.py
+# also loads .env, a bare PORT here would pick up Express's value and bind
+# the wrong port.
+PORT = int(os.environ.get('PYTHON_PORT', '8000'))
 DB_PATH = os.environ.get('DB_PATH', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'jyotirgamaya.db'))
 
 
@@ -568,6 +577,23 @@ class AstroHandler(BaseHTTPRequestHandler):
                 payload = self._read_json_body()
                 reading = generate_reading(payload)
                 self._send_json(201, save_reading_record(payload, reading))
+            self._handle_errors(handle)
+            return
+
+        if parsed.path == '/api/guruji/chat':
+            def handle():
+                payload = self._read_json_body()
+                try:
+                    reply = guruji.ask_guruji(
+                        payload.get('message'),
+                        payload.get('history'),
+                        payload.get('reading')
+                    )
+                except guruji.GurujiValidationError as exc:
+                    raise ValidationError(str(exc))
+                except guruji.GurujiUnavailableError as exc:
+                    raise UpstreamError(str(exc))
+                self._send_json(200, {'reply': reply})
             self._handle_errors(handle)
             return
 
